@@ -7,7 +7,7 @@ name = "balancer-solver-base" # Arbitrary name given to this solver, must be uni
 endpoint = "http://0.0.0.0:8083"
 absolute-slippage = "40000000000000000" # Denominated in wei, optional
 relative-slippage = "0.1" # Percentage in the [0, 1] range
-account = "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6" # The private key of the solver
+account = "top_secret" # The private key of the solver
 merge-solutions = true # Multiple solutions proposed by the solver may be combined into one by the driver
 response-size-limit-max-bytes = 30000000
 
