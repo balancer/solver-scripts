@@ -1,0 +1,32 @@
+chain-id = "137" # Polygon
+base-tokens = [
+    "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", # DAI
+    "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", # USDC
+    "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", # USDT
+    "0xcb8b5CD20BdCaea9a010aC1F8d835824F5C87A04", # COW
+]
+max-hops = 3
+max-partial-attempts = 7
+native-token-price-estimation-amount = "100000000000000000" # 0.1 MATIC
+
+# Optional: Directory to save auction and solution JSON files for debugging
+auction-save-directory = "/tmp/auction-data/polygon"
+
+# Optional: Solution verification via Balancer contracts (runs in background, no performance impact)
+vault-address = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"  # Balancer V2 Vault (same on all chains)
+# batch-router-address = "0x..."  # Balancer V3 does not exist on Polygon yet
+node-url = "https://polygon-rpc.com"  # Same as production script RPC_URL
+
+[logging]
+auction-files = true
+competition = true
+swap-logs = true
+swap-log-verification = true
+solution-verification = true
+enhanced-solutions = true
+
+# Independent liquidity fetching configuration
+[liquidity]
+driver-url = "http://localhost:8084/balsolver_polygon"  # Liquidity-driver endpoint
+timeout-ms = 5000
+protocols = ["balancer_v2", "balancer_v3", "uniswap_v2", "uniswap_v3"] 

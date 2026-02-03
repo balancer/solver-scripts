@@ -1,0 +1,33 @@
+chain-id = "42161" # Arbitrum One
+base-tokens = [
+    "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", # DAI
+    "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", # USDC
+    "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", # USDT
+    "0xcb8b5CD20BdCaea9a010aC1F8d835824F5C87A04", # COW
+    "0x912CE59144191C1204E64559FE8253a0e49E6548", # ARB
+]
+max-hops = 3
+max-partial-attempts = 7
+native-token-price-estimation-amount = "100000000000000000" # 0.1 ETH
+
+# Optional: Directory to save auction and solution JSON files for debugging
+auction-save-directory = "/tmp/auction-data/arbitrum"
+
+# Optional: Solution verification via Balancer contracts (runs in background, no performance impact)
+vault-address = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"  # Balancer V2 Vault (same on all chains)
+batch-router-address = "0xaD89051bEd8d96f045E8912aE1672c6C0bF8a85E"  # Balancer V3 Batch Router
+node-url = "http://localhost:8547"  # Same as production script RPC_URL
+
+[logging]
+auction-files = true
+competition = true
+swap-logs = true
+swap-log-verification = true
+solution-verification = true
+enhanced-solutions = true
+
+# Independent liquidity fetching configuration
+[liquidity]
+driver-url = "http://localhost:8081/balsolver_arbitrum"  # Liquidity-driver endpoint
+timeout-ms = 5000
+protocols = ["balancer_v2", "balancer_v3", "uniswap_v2", "uniswap_v3"] 

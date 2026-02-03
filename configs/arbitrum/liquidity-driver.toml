@@ -1,0 +1,80 @@
+# Liquidity Driver Configuration for Arbitrum One
+# This is a 1:1 copy of driver.toml with dummy solver/submission sections
+# The liquidity-driver needs these sections even though it only fetches liquidity
+
+chain-id = 42161
+tx-gas-limit = "32000000"
+
+# Dummy solver section (required by config parser but not used)
+[[solver]]
+name = "balsolver_arbitrum"
+endpoint = "http://127.0.0.1:7872"  # Unused endpoint
+absolute-slippage = "40000000000000000"
+relative-slippage = "0.1"
+account = "0x0000000000000000000000000000000000000000000000000000000000000001"  # Dummy key
+merge-solutions = true
+response-size-limit-max-bytes = 30000000
+
+# Dummy submission section (required by config parser but not used)
+[submission]
+gas-price-cap = "1000000000000"
+
+[[submission.mempool]]
+mempool = "public"
+max-additional-tip = "5000000000"
+additional-tip-percentage = 0.05
+
+# ACTUAL CONFIG STARTS HERE - This part is used for liquidity fetching
+[contracts] 
+gp-v2-settlement = "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
+weth = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+
+[[contracts.cow-amms]]
+factory = "0xE0e2Ba143EE5268DA87D529949a2521115987302"
+helper = "0xdB2AeAB529C035469e190310dEf9957ef0398bA8"
+
+[liquidity]
+base-tokens = [
+    "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", # WETH
+    "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", # DAI
+    "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", # USDC
+    "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", # USDT
+    "0xcb8b5CD20BdCaea9a010aC1F8d835824F5C87A04", # COW
+    "0x912CE59144191C1204E64559FE8253a0e49E6548", # ARB
+]
+
+[[order-priority]]
+strategy = "external-price"
+max-order-age = "5m"
+
+[[order-priority]]
+strategy = "creation-timestamp"
+
+[[order-priority]]
+strategy = "own-quotes"
+max-order-age = "1m"
+
+# Balancer V2 Configuration for Arbitrum
+[[liquidity.balancer-v2]]
+preset = "balancer-v2"
+graph-url = "https://api-v3.balancer.fi/"
+pool-deny-list = []
+reinit-interval = "12h"
+
+# Balancer V3 Configuration for Arbitrum
+[[liquidity.balancer-v3]]
+preset = "balancer-v3"
+graph-url = "https://api-v3.balancer.fi/"
+pool-deny-list = []
+reinit-interval = "12h"
+
+# Uniswap V2 Configuration (optional)
+# [[liquidity.uniswap-v2]]
+# preset = "uniswap-v2"
+
+# Uniswap V3 Configuration (optional)
+# [[liquidity.uniswap-v3]]
+# preset = "uniswap-v3"
+# graph-url = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
+# max_pools_to_initialize = 100
+# reinit-interval = "12h"

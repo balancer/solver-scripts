@@ -1,0 +1,77 @@
+# Chain ID for Polygon
+chain-id = 137
+tx-gas-limit = "30000000"
+
+[[solver]]
+name = "balancer-solver-polygon" # Arbitrary name given to this solver, must be unique
+endpoint = "http://0.0.0.0:8084"
+absolute-slippage = "40000000000000000" # Denominated in wei, optional
+relative-slippage = "0.1" # Percentage in the [0, 1] range
+account = "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6" # The private key of the solver
+merge-solutions = true # Multiple solutions proposed by the solver may be combined into one by the driver
+response-size-limit-max-bytes = 30000000
+
+[submission]
+gas-price-cap = "1000000000000"
+
+[[submission.mempool]]
+mempool = "public"
+max-additional-tip = "5000000000"
+additional-tip-percentage = 0.05
+
+[contracts] # Polygon contract addresses
+gp-v2-settlement = "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
+weth = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270" # WPOL on Polygon
+
+[[contracts.cow-amms]]
+# address of factory creating new CoW AMMs
+factory = "0x86f3df416979136cb4fdea2c0886301b911c163b"
+# address of contract to help interfacing with the created CoW AMMs
+helper = "0x86f3df416979136cb4fdea2c0886301b911c163b"
+
+[liquidity]
+base-tokens = [
+    "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", # WPOL
+    "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", # DAI
+    "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", # USDC
+    "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", # USDT
+    "0xcb8b5CD20BdCaea9a010aC1F8d835824F5C87A04", # COW
+]
+
+[[order-priority]]
+strategy = "external-price"
+max-order-age = "5m"
+
+[[order-priority]]
+strategy = "creation-timestamp"
+
+[[order-priority]]
+strategy = "own-quotes"
+max-order-age = "1m"
+
+# Balancer V2 Configuration for Polygon
+[[liquidity.balancer-v2]]
+preset = "balancer-v2"
+graph-url = "https://api-v3.balancer.fi/"
+pool-deny-list = []
+reinit-interval = "12h"
+
+# Balancer V3 Configuration for Polygon
+[[liquidity.balancer-v3]]
+preset = "balancer-v3"
+graph-url = "https://api-v3.balancer.fi/"
+pool-deny-list = []
+reinit-interval = "12h"
+
+# Uniswap V2 Configuration (optional)
+# [[liquidity.uniswap-v2]]
+# preset = "uniswap-v2"
+
+# Uniswap V3 Configuration (optional)
+# [[liquidity.uniswap-v3]]
+# preset = "uniswap-v3"
+# graph-url = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
+# max_pools_to_initialize = 100
+# reinit-interval = "12h"
+
+ 

@@ -1,0 +1,31 @@
+chain-id = "8453" # Base
+base-tokens = [
+    "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", # DAI
+    "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", # USDC
+    "0xcb8b5CD20BdCaea9a010aC1F8d835824F5C87A04", # COW
+]
+max-hops = 3
+max-partial-attempts = 7
+native-token-price-estimation-amount = "100000000000000000" # 0.1 ETH
+
+# Optional: Directory to save auction and solution JSON files for debugging
+auction-save-directory = "/tmp/auction-data/base"
+
+# Optional: Solution verification via Balancer contracts (runs in background, no performance impact)
+vault-address = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"  # Balancer V2 Vault (same on all chains)
+batch-router-address = "0x85a80afee867aDf27B50BdB7b76DA70f1E853062"  # Balancer V3 Batch Router
+node-url = "https://mainnet.base.org"  # Same as production script RPC_URL
+
+[logging]
+auction-files = true
+competition = true
+swap-logs = true
+swap-log-verification = true
+solution-verification = true
+enhanced-solutions = true
+
+# Independent liquidity fetching configuration
+[liquidity]
+driver-url = "http://localhost:8083/balsolver_base"  # Liquidity-driver endpoint
+timeout-ms = 5000
+protocols = ["balancer_v2", "balancer_v3", "uniswap_v2", "uniswap_v3"] 

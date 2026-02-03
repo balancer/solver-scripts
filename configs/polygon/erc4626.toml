@@ -1,0 +1,5 @@
+# Enable/disable ERC4626 source for this chain
+enabled = true
+
+# Fixed list of ERC4626 vault addresses
+vaults = []

@@ -1,0 +1,70 @@
+# Chain ID for Ethereum Mainnet
+chain-id = 1
+tx-gas-limit = "30000000"
+
+[[solver]]
+name = "balancer-solver-mainnet" # Arbitrary name given to this solver, must be unique
+endpoint = "http://0.0.0.0:8081"
+absolute-slippage = "40000000000000000" # Denominated in wei, optional
+relative-slippage = "0.1" # Percentage in the [0, 1] range
+account = "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6" # The private key of the solver
+merge-solutions = true # Multiple solutions proposed by the solver may be combined into one by the driver
+response-size-limit-max-bytes = 30000000
+
+[submission]
+gas-price-cap = "1000000000000"
+
+[[submission.mempool]]
+mempool = "public"
+max-additional-tip = "5000000000"
+additional-tip-percentage = 0.05
+
+[[submission.mempool]]
+mempool = "mev-blocker"
+url = "https://your.custom.rpc.endpoint"
+max-additional-tip = "5000000000"
+additional-tip-percentage = 0.05
+use-soft-cancellations = true
+
+[contracts] # Mainnet contract addresses
+gp-v2-settlement = "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
+weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+
+[[contracts.cow-amms]]
+# address of factory creating new CoW AMMs
+factory = "0xf76c421bAb7df8548604E60deCCcE50477C10462"
+# address of contract to help interfacing with the created CoW AMMs
+helper = "0x03362f847B4fAbC12e1Ce98b6b59F94401E4588e"
+
+[liquidity]
+base-tokens = [
+    "0xDEf1CA1fb7FBcDC777520aa7f396b4E015F497aB", # COW
+    "0x6B175474E89094C44Da98b954EedeAC495271d0F", # DAI
+    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", # USDC
+    "0xdAC17F958D2ee523a2206206994597C13D831ec7", # USDT
+    "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", # WBTC
+    "0x6810e776880C02933D47DB1b9fc05908e5386b96", # GNO
+]
+
+[[order-priority]]
+strategy = "external-price"
+max-order-age = "5m"
+
+[[order-priority]]
+strategy = "creation-timestamp"
+
+[[order-priority]]
+strategy = "own-quotes"
+max-order-age = "1m"
+
+# LIQUIDITY SOURCES REMOVED - NOW HANDLED BY LIQUIDITY-DRIVER
+# All liquidity fetching is now done by the separate liquidity-driver instance
+# The balancer-solver will call the liquidity-driver API for liquidity data
+
+# Original liquidity sources commented out:
+# [[liquidity.balancer-v2]]
+# [[liquidity.balancer-v3]]
+# [[liquidity.uniswap-v2]]
+# [[liquidity.uniswap-v3]]
+
+ 

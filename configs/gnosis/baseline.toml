@@ -1,0 +1,36 @@
+chain-id = "100" # Gnosis Chain
+base-tokens = [
+    "0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1", # WETH
+    "0x9C58BAcC331c9aa871AFD802DB6379a98e80CEdb", # GNO
+    "0x177127622c4A00F3d409B75571e12cB3c8973d3c", # COW
+    "0x6B175474E89094C44Da98b954EedeAC495271d0F", # DAI
+    "0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0", # USDCe
+    "0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83", # USDC
+    "0x4ECaBa5870353805a9F068101A40E0f32ed605C6", # USDT
+]
+max-hops = 3
+max-partial-attempts = 7
+native-token-price-estimation-amount = "100000000000000000000" # 100 XDAI
+erc4626-node-url = "http://localhost:8545"
+
+# Optional: Directory to save auction and solution JSON files for debugging
+auction-save-directory = "/tmp/auction-data/gnosis"
+
+# Optional: Solution verification via Balancer contracts (runs in background, no performance impact)
+vault-address = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"  # Balancer V2 Vault (same on all chains)
+batch-router-address = "0xe2fa4e1d17725e72dcdAfe943Ecf45dF4B9E285b"  # Balancer V3 Batch Router
+node-url = "https://rpc.gnosischain.com"  # Same as production script RPC_URL
+
+[logging]
+auction-files = true
+competition = true
+swap-logs = true
+swap-log-verification = true
+solution-verification = true
+enhanced-solutions = true
+
+# Independent liquidity fetching configuration
+[liquidity]
+driver-url = "http://localhost:8082/balsolver_gnosis"  # Liquidity-driver endpoint
+timeout-ms = 5000
+protocols = ["balancer_v2", "balancer_v3", "uniswap_v2", "uniswap_v3"]

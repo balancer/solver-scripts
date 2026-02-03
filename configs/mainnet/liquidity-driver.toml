@@ -1,0 +1,80 @@
+# Liquidity Driver Configuration for Ethereum Mainnet
+# This is a 1:1 copy of driver.toml with dummy solver/submission sections
+# The liquidity-driver needs these sections even though it only fetches liquidity
+
+chain-id = 1
+tx-gas-limit = "30000000"
+
+# Dummy solver section (required by config parser but not used)
+[[solver]]
+name = "balsolver_mainnet"
+endpoint = "http://127.0.0.1:7872"  # Unused endpoint
+absolute-slippage = "40000000000000000"
+relative-slippage = "0.1"
+account = "0x0000000000000000000000000000000000000000000000000000000000000001"  # Dummy key
+merge-solutions = true
+response-size-limit-max-bytes = 30000000
+
+# Dummy submission section (required by config parser but not used)
+[submission]
+gas-price-cap = "1000000000000"
+
+[[submission.mempool]]
+mempool = "public"
+max-additional-tip = "5000000000"
+additional-tip-percentage = 0.05
+
+# ACTUAL CONFIG STARTS HERE - This part is used for liquidity fetching
+[contracts]
+gp-v2-settlement = "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
+weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+
+[[contracts.cow-amms]]
+factory = "0xf76c421bAb7df8548604E60deCCcE50477C10462"
+helper = "0x03362f847B4fAbC12e1Ce98b6b59F94401E4588e"
+
+[liquidity]
+base-tokens = [
+    "0xDEf1CA1fb7FBcDC777520aa7f396b4E015F497aB", # COW
+    "0x6B175474E89094C44Da98b954EedeAC495271d0F", # DAI
+    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", # USDC
+    "0xdAC17F958D2ee523a2206206994597C13D831ec7", # USDT
+    "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", # WBTC
+    "0x6810e776880C02933D47DB1b9fc05908e5386b96", # GNO
+]
+
+[[order-priority]]
+strategy = "external-price"
+max-order-age = "5m"
+
+[[order-priority]]
+strategy = "creation-timestamp"
+
+[[order-priority]]
+strategy = "own-quotes"
+max-order-age = "1m"
+
+# Balancer V2 Configuration for Mainnet
+[[liquidity.balancer-v2]]
+preset = "balancer-v2"
+graph-url = "https://api-v3.balancer.fi/"
+pool-deny-list = ["0xbd482ffb3e6e50dc1c437557c3bea2b68f3683ee0000000000000000000003c6"]
+reinit-interval = "12h"
+
+# Balancer V3 Configuration for Mainnet
+[[liquidity.balancer-v3]]
+preset = "balancer-v3"
+graph-url = "https://api-v3.balancer.fi/"
+pool-deny-list = []
+reinit-interval = "12h"
+
+# Uniswap V2 Configuration (optional)
+# [[liquidity.uniswap-v2]]
+# preset = "uniswap-v2"
+
+# Uniswap V3 Configuration (optional)
+# [[liquidity.uniswap-v3]]
+# preset = "uniswap-v3"
+# graph-url = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
+# max_pools_to_initialize = 100
+# reinit-interval = "12h"

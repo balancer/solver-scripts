@@ -1,0 +1,82 @@
+# Liquidity Driver Configuration for Gnosis Chain
+# This is a 1:1 copy of driver.toml with dummy solver/submission sections
+# The liquidity-driver needs these sections even though it only fetches liquidity
+
+chain-id = 100
+tx-gas-limit = "17000000"
+
+# Dummy solver section (required by config parser but not used)
+[[solver]]
+name = "balsolver_gnosis"
+endpoint = "http://127.0.0.1:7872"  # Unused endpoint
+absolute-slippage = "40000000000000000"
+relative-slippage = "0.1"
+account = "0x0000000000000000000000000000000000000000000000000000000000000001"  # Dummy key
+merge-solutions = true
+response-size-limit-max-bytes = 30000000
+
+# Dummy submission section (required by config parser but not used)
+[submission]
+gas-price-cap = "1000000000000"
+
+[[submission.mempool]]
+mempool = "public"
+max-additional-tip = "5000000000"
+additional-tip-percentage = 0.05
+
+# ACTUAL CONFIG STARTS HERE - This part is used for liquidity fetching
+[contracts]
+gp-v2-settlement = "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
+weth = "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d" # WXDAI on Gnosis Chain
+
+[[contracts.cow-amms]]
+factory = "0x703Bd8115E6F21a37BB5Df97f78614ca72Ad7624"
+helper = "0xdB2AeAB529C035469e190310dEf9957ef0398bA8"
+
+[liquidity]
+base-tokens = [
+    "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d", # WXDAI
+    "0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1", # WETH
+    "0x9C58BAcC331c9aa871AFD802DB6379a98e80CEdb", # GNO
+    "0x177127622c4A00F3d409B75571e12cB3c8973d3c", # COW
+    "0x6B175474E89094C44Da98b954EedeAC495271d0F", # DAI
+    "0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0", # USDCe
+    "0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83", # USDC
+    "0x4ECaBa5870353805a9F068101A40E0f32ed605C6", # USDT
+]
+
+[[order-priority]]
+strategy = "external-price"
+max-order-age = "5m"
+
+[[order-priority]]
+strategy = "creation-timestamp"
+
+[[order-priority]]
+strategy = "own-quotes"
+max-order-age = "1m"
+
+# Balancer V2 Configuration for Gnosis Chain
+[[liquidity.balancer-v2]]
+preset = "balancer-v2"
+graph-url = "https://api-v3.balancer.fi/"
+pool-deny-list = []
+reinit-interval = "4h"
+
+# Balancer V3 Configuration for Gnosis Chain
+[[liquidity.balancer-v3]]
+preset = "balancer-v3"
+graph-url = "https://api-v3.balancer.fi/"
+pool-deny-list = []
+reinit-interval = "4h"
+
+# Uniswap V2 Configuration (optional)
+# [[liquidity.uniswap-v2]]
+# preset = "uniswap-v2"
+
+# Uniswap V3 Configuration (optional)
+# [[liquidity.uniswap-v3]]
+# preset = "uniswap-v3"
+# graph-url = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
+# max_pools_to_initialize = 100
+# reinit-interval = "12h"

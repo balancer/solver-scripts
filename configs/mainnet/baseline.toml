@@ -1,0 +1,35 @@
+chain-id = "1" # Ethereum mainnet
+base-tokens = [
+    "0x6B175474E89094C44Da98b954EedeAC495271d0F", # DAI 
+    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", # USDC
+    "0xdAC17F958D2ee523a2206206994597C13D831ec7", # USDT
+    "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", # WBTC
+    "0x6810e776880C02933D47DB1b9fc05908e5386b96", # GNO
+    "0xDEf1CA1fb7FBcDC777520aa7f396b4E015F497aB", # COW
+]
+max-hops = 3
+max-partial-attempts = 7
+native-token-price-estimation-amount = "100000000000000000" # 0.1 ETH
+erc4626-node-url = "http://localhost:8546"
+
+# Optional: Directory to save auction and solution JSON files for debugging
+auction-save-directory = "/tmp/auction-data/mainnet"
+
+# Optional: Solution verification via Balancer contracts (runs in background, no performance impact)
+vault-address = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"  # Balancer V2 Vault (same on all chains)
+batch-router-address = "0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1"  # Balancer V3 Batch Router
+node-url = "http://localhost:8546"  # Same as production script RPC_URL
+
+[logging]
+auction-files = true
+competition = true
+swap-logs = true
+swap-log-verification = true
+solution-verification = true
+enhanced-solutions = true
+
+# Independent liquidity fetching configuration
+[liquidity]
+driver-url = "http://localhost:8080/balsolver_mainnet"  # Liquidity-driver endpoint
+timeout-ms = 5000
+protocols = ["balancer_v2", "balancer_v3", "uniswap_v2", "uniswap_v3"]
