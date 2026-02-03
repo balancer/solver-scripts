@@ -1,0 +1,74 @@
+services:
+  nethermind:
+    image: nethermind/nethermind:latest
+    container_name: base-execution
+    restart: unless-stopped
+
+    command:
+      # --- Basic configuration ---
+      - --config=base-mainnet
+      - --datadir=/nethermind/data
+      - --JsonRpc.Enabled=true
+      - --JsonRpc.Host=0.0.0.0
+      - --JsonRpc.Port=8545
+      - --JsonRpc.WebSocketsPort=8546
+      - --JsonRpc.EnabledModules=eth,web3,net,debug,trace,txpool,subscribe
+      - --JsonRpc.JwtSecretFile=/nethermind/jwt/jwt.hex
+      - --JsonRpc.EngineHost=0.0.0.0
+      - --JsonRpc.EnginePort=8551
+
+      # --- Sync settings ---
+      - --Sync.SnapSync=true
+      # Uncomment for archive node:
+      # - --Pruning.Mode=None
+
+      # --- P2P / Discovery ---
+      - --Network.DiscoveryPort=30300
+      - --Network.P2PPort=30300
+
+    ports:
+      # JSON-RPC HTTP (exposed as 8540)
+      - "8540:8545"
+
+      # JSON-RPC WebSocket (exposed as 8541)
+      - "8541:8546"
+
+      # P2P (TCP + UDP)
+      - "30300:30300/tcp"
+      - "30300:30300/udp"
+
+    volumes:
+      - $HOME/base/data:/nethermind/data
+      - $HOME/base/jwt:/nethermind/jwt:ro
+
+    logging:
+      driver: "local"
+
+  op-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:latest
+    container_name: base-consensus
+    restart: unless-stopped
+    depends_on:
+      - nethermind
+
+    command:
+      - op-node
+      - --l1=http://<L1_RPC_URL>:8546
+      - --l1.rpckind=standard
+      - --l1.beacon=https://<L1_BEACON_URL>
+      - --l2=http://nethermind:8551
+      - --l2.jwt-secret=/jwt/jwt.hex
+      - --syncmode=execution-layer
+      - --network=base-mainnet
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=9545
+
+    ports:
+      # op-node RPC (exposed as 8542)
+      - "8542:9545"
+
+    volumes:
+      - $HOME/base/jwt:/jwt:ro
+
+    logging:
+      driver: "local"
