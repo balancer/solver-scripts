@@ -3,8 +3,8 @@ chain-id = 42161
 tx-gas-limit = "32000000"
 
 [[solver]]
-name = "balancer-solver-arbitrum" # Arbitrary name given to this solver, must be unique
-endpoint = "http://0.0.0.0:8082"
+name = "balancer-solver" # Must match the name used in autopilot --drivers flag
+endpoint = "http://127.0.0.1:8082"
 absolute-slippage = "40000000000000000" # Denominated in wei, optional
 relative-slippage = "0.1" # Percentage in the [0, 1] range
 account = "top_secret" # The private key of the solver
