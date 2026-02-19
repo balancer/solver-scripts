@@ -23,11 +23,10 @@ additional-tip-percentage = 0.05
 gp-v2-settlement = "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
 weth = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
 
-[[contracts.cow-amms]]
-# address of factory creating new CoW AMMs
-factory = "0xE0e2Ba143EE5268DA87D529949a2521115987302"
-# address of contract to help interfacing with the created CoW AMMs
-helper = "0xdB2AeAB529C035469e190310dEf9957ef0398bA8"
+# CoW AMMs disabled - liquidity fetched by liquidity-driver instead
+# [[contracts.cow-amms]]
+# factory = "0xE0e2Ba143EE5268DA87D529949a2521115987302"
+# helper = "0xdB2AeAB529C035469e190310dEf9957ef0398bA8"
 
 [liquidity]
 base-tokens = [
@@ -50,19 +49,18 @@ strategy = "creation-timestamp"
 strategy = "own-quotes"
 max-order-age = "1m"
 
-# Balancer V2 Configuration for Arbitrum
-[[liquidity.balancer-v2]]
-preset = "balancer-v2"
-graph-url = "https://api-v3.balancer.fi/"
-pool-deny-list = []
-reinit-interval = "12h"
+# Balancer V2/V3 liquidity disabled in driver - fetched by liquidity-driver instead
+# [[liquidity.balancer-v2]]
+# preset = "balancer-v2"
+# graph-url = "https://api-v3.balancer.fi/"
+# pool-deny-list = []
+# reinit-interval = "12h"
 
-# Balancer V3 Configuration for Arbitrum
-[[liquidity.balancer-v3]]
-preset = "balancer-v3"
-graph-url = "https://api-v3.balancer.fi/"
-pool-deny-list = []
-reinit-interval = "12h"
+# [[liquidity.balancer-v3]]
+# preset = "balancer-v3"
+# graph-url = "https://api-v3.balancer.fi/"
+# pool-deny-list = []
+# reinit-interval = "12h"
 
 # Uniswap V2 Configuration (optional)
 # [[liquidity.uniswap-v2]]
