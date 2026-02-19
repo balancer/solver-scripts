@@ -10,6 +10,13 @@ max-hops = 3
 max-partial-attempts = 7
 native-token-price-estimation-amount = "100000000000000000" # 0.1 ETH
 
+# Arbitrum L2 gas offset: the default (106391) is calibrated for mainnet.
+# The autopilot's effectiveGasPrice is ~111x the actual Arbitrum gas price
+# (it bundles L1 data posting costs), so we use a negative offset to compensate.
+# Per-pool gas (100k, hardcoded) + this offset = total gas for fee calculation.
+# -95000 makes 1-hop routes use ~5k gas, giving reasonable fees on L2.
+solution-gas-offset = -95000
+
 # Optional: Directory to save auction and solution JSON files for debugging
 auction-save-directory = "/tmp/auction-data/arbitrum"
 
@@ -30,4 +37,4 @@ enhanced-solutions = true
 [liquidity]
 driver-url = "http://localhost:8081/balsolver_arbitrum"  # Liquidity-driver endpoint
 timeout-ms = 5000
-protocols = ["balancer_v2", "balancer_v3", "uniswap_v2", "uniswap_v3"] 
+protocols = ["balancer_v2", "balancer_v3"] 

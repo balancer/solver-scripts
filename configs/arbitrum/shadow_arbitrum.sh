@@ -19,9 +19,16 @@ echo "Solver Endpoint: http://$SOLVER_HOST:$SOLVER_PORT"
 echo "Config: $CONFIG_FILE"
 echo ""
 
-# Check if we're in the right directory
-if [ ! -d "services" ]; then
-    echo "❌ Error: Please run this script from the root directory (where 'services' folder is located)"
+# Resolve directories from script location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPTS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SERVICES_DIR="$(cd "$SCRIPTS_ROOT/.." && pwd)/services"
+CONFIG_DIR="$SCRIPT_DIR"
+
+# Check if services directory exists as sibling
+if [ ! -d "$SERVICES_DIR" ]; then
+    echo "❌ Error: 'services' directory not found at $SERVICES_DIR"
+    echo "   Expected directory layout: services/ and solver-scripts/ side by side"
     exit 1
 fi
 
@@ -31,14 +38,10 @@ if ! command -v cargo &> /dev/null; then
     exit 1
 fi
 
-# Setup arbitrum configuration
-echo "🔧 Setting up arbitrum configuration..."
-ln -sf configs/arbitrum/baseline.toml baseline.config.toml
-
-echo "✅ Arbitrum configuration loaded"
+echo "✅ Services directory: $SERVICES_DIR"
 
 # Change to services directory
-cd services
+cd "$SERVICES_DIR"
 
 echo ""
 echo "📦 Building balancer solver (release mode)..."
@@ -63,7 +66,7 @@ cargo run --release -p balancer-solver -- \
     --log "info,balancer_solver=debug,shared=debug,solver=debug" \
     --addr "$SOLVER_HOST:$SOLVER_PORT" \
     baseline \
-    --config "../baseline.config.toml" &
+    --config "$CONFIG_DIR/baseline.toml" &
 
 SOLVER_PID=$!
 

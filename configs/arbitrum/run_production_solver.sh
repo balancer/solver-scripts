@@ -28,6 +28,12 @@ echo "🔄 Architecture:"
 echo "   CoW (autopilot + driver) → balancer-solver → liquidity-driver"
 echo ""
 
+# Resolve directories from script location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPTS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SERVICES_DIR="$(cd "$SCRIPTS_ROOT/.." && pwd)/services"
+CONFIG_DIR="$SCRIPT_DIR"
+
 # Check prerequisites
 if ! command -v cargo &> /dev/null; then
     echo "❌ Rust/Cargo is not installed"
@@ -35,36 +41,35 @@ if ! command -v cargo &> /dev/null; then
 fi
 echo "✅ Rust/Cargo is installed"
 
-# Setup configuration
-echo "🔧 Setting up $CHAIN configuration..."
-cd "$(dirname "$0")/../.."
-CONFIG_DIR="configs/$CHAIN"
+# Check if services directory exists as sibling
+if [ ! -d "$SERVICES_DIR" ]; then
+    echo "❌ Error: 'services' directory not found at $SERVICES_DIR"
+    echo "   Expected directory layout: services/ and solver-scripts/ side by side"
+    exit 1
+fi
 
-# Create symlinks for configuration files
-ln -sf "$PWD/$CONFIG_DIR/liquidity-driver.toml" liquidity-driver.config.toml
-ln -sf "$PWD/$CONFIG_DIR/baseline.toml" baseline.config.toml
-
-echo "✅ $CHAIN configuration loaded"
+echo "✅ Services directory: $SERVICES_DIR"
 
 # Build services
 echo ""
 echo "📦 Building production services..."
-cd services
+cd "$SERVICES_DIR"
 cargo build --release --bin liquidity-driver --bin balancer-solver
 
 echo ""
 echo "🚀 Starting services in production mode..."
 echo ""
 
-# Create logs directory
-mkdir -p logs
+# Create logs directory in scripts root
+LOGS_DIR="$SCRIPTS_ROOT/logs"
+mkdir -p "$LOGS_DIR"
 
 # Start liquidity-driver
 echo "Starting liquidity-driver on port $LIQUIDITY_DRIVER_PORT..."
 RUST_LOG=trace cargo run --release --bin liquidity-driver -- \
     --ethrpc "$RPC_URL" \
-    --config ../liquidity-driver.config.toml \
-    --addr "0.0.0.0:$LIQUIDITY_DRIVER_PORT" >> ../logs/liquidity-driver-$CHAIN.log 2>&1 &
+    --config "$CONFIG_DIR/liquidity-driver.toml" \
+    --addr "0.0.0.0:$LIQUIDITY_DRIVER_PORT" >> "$LOGS_DIR/liquidity-driver-$CHAIN.log" 2>&1 &
 
 LIQUIDITY_DRIVER_PID=$!
 echo "✅ liquidity-driver started (PID: $LIQUIDITY_DRIVER_PID)"
@@ -87,7 +92,7 @@ echo "Starting balancer-solver on port $SOLVER_PORT..."
 # Change to LOG=trace for full verbose logging if needed
 LOG="balancer_solver=debug,tower_http=info,reqwest=info,warn" cargo run --release --bin balancer-solver -- \
     --addr "0.0.0.0:$SOLVER_PORT" \
-    baseline --config ../baseline.config.toml >> ../logs/balancer-solver-$CHAIN.log 2>&1 &
+    baseline --config "$CONFIG_DIR/baseline.toml" >> "$LOGS_DIR/balancer-solver-$CHAIN.log" 2>&1 &
 
 SOLVER_PID=$!
 echo "✅ balancer-solver started (PID: $SOLVER_PID)"
@@ -113,12 +118,12 @@ echo "To stop services:"
 echo "  kill $LIQUIDITY_DRIVER_PID $SOLVER_PID"
 echo ""
 echo "Logs:"
-echo "  liquidity-driver: logs/liquidity-driver-$CHAIN.log (PID $LIQUIDITY_DRIVER_PID)"
-echo "  balancer-solver:  logs/balancer-solver-$CHAIN.log (PID $SOLVER_PID)"
+echo "  liquidity-driver: $LOGS_DIR/liquidity-driver-$CHAIN.log (PID $LIQUIDITY_DRIVER_PID)"
+echo "  balancer-solver:  $LOGS_DIR/balancer-solver-$CHAIN.log (PID $SOLVER_PID)"
 echo ""
 echo "To tail logs in real-time:"
-echo "  tail -f logs/liquidity-driver-$CHAIN.log"
-echo "  tail -f logs/balancer-solver-$CHAIN.log"
+echo "  tail -f $LOGS_DIR/liquidity-driver-$CHAIN.log"
+echo "  tail -f $LOGS_DIR/balancer-solver-$CHAIN.log"
 echo ""
 
 # Keep script running and handle shutdown gracefully

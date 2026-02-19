@@ -9,9 +9,15 @@ set -e
 NODE_URL="https://arb1.arbitrum.io/rpc"  # Arbitrum One RPC
 ORDERBOOK_URL="https://barn.api.cow.fi/arbitrum_one"  # Staging arbitrum orderbook
 DRIVER_PORT="11088"
-LIQUIDITY_DRIVER_PORT="8080"  # Liquidity-driver port
-SOLVER_PORT="8083"  # Different port to avoid conflicts
+LIQUIDITY_DRIVER_PORT="8081"  # Liquidity-driver port (matches baseline.toml)
+SOLVER_PORT="8082"
 CHAIN_NAME="arbitrum"
+
+# Resolve directories from script location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPTS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SERVICES_DIR="$(cd "$SCRIPTS_ROOT/.." && pwd)/services"
+CONFIG_DIR="$SCRIPT_DIR"
 
 echo "🚀 Setting up CoW Protocol Independent Liquidity Testing - ARBITRUM ONE"
 echo "============================================================="
@@ -26,9 +32,10 @@ echo "🔄 Architecture:"
 echo "   CoW Driver (no liquidity) → Balancer-Solver → Liquidity-Driver (all liquidity)"
 echo ""
 
-# Check if we're in the right directory
-if [ ! -d "services" ]; then
-    echo "❌ Error: Please run this script from the root directory (where 'services' folder is located)"
+# Check if services directory exists as sibling
+if [ ! -d "$SERVICES_DIR" ]; then
+    echo "❌ Error: 'services' directory not found at $SERVICES_DIR"
+    echo "   Expected directory layout: services/ and solver-scripts/ side by side"
     exit 1
 fi
 
@@ -39,17 +46,10 @@ if ! command -v cargo &> /dev/null; then
 fi
 
 echo "✅ Rust/Cargo is installed"
-
-# Setup arbitrum configuration
-echo "🔧 Setting up arbitrum configuration..."
-ln -sf configs/arbitrum/driver.toml driver.config.toml
-ln -sf configs/arbitrum/baseline.toml baseline.config.toml
-ln -sf configs/arbitrum/liquidity-driver.toml liquidity-driver.config.toml
-
-echo "✅ Arbitrum configuration loaded"
+echo "✅ Services directory: $SERVICES_DIR"
 
 # Change to services directory
-cd services
+cd "$SERVICES_DIR"
 
 echo ""
 echo "📦 Building CoW Protocol services..."
@@ -70,7 +70,7 @@ trap cleanup SIGINT SIGTERM
 
 # Step 1: Start the liquidity-driver (provides ALL liquidity data)
 echo "🔧 [1/4] Starting liquidity-driver on port $LIQUIDITY_DRIVER_PORT..."
-cargo run -p liquidity-driver -- --config ../liquidity-driver.config.toml --ethrpc "$NODE_URL" --bind 0.0.0.0:$LIQUIDITY_DRIVER_PORT &
+cargo run --release --bin liquidity-driver -- --config "$CONFIG_DIR/liquidity-driver.toml" --ethrpc "$NODE_URL" --addr 0.0.0.0:$LIQUIDITY_DRIVER_PORT &
 LIQUIDITY_DRIVER_PID=$!
 
 # Wait for liquidity-driver to start
@@ -79,7 +79,7 @@ echo "✅ Liquidity-driver started"
 
 # Step 2: Start the balancer solver (will call liquidity-driver for data)
 echo "🔧 [2/4] Starting balancer solver on port $SOLVER_PORT..."
-cargo run -p balancer-solver -- --addr 127.0.0.1:$SOLVER_PORT baseline --config ../baseline.config.toml &
+cargo run -p balancer-solver -- --addr 127.0.0.1:$SOLVER_PORT baseline --config "$CONFIG_DIR/baseline.toml" &
 SOLVER_PID=$!
 
 # Wait for solver to start  
@@ -88,7 +88,7 @@ echo "✅ Balancer-solver started"
 
 # Step 3: Start the driver (NO liquidity sources configured)
 echo "🔧 [3/4] Starting driver on port $DRIVER_PORT..."
-cargo run -p driver -- --config ../driver.config.toml --ethrpc "$NODE_URL" &
+cargo run -p driver -- --config "$CONFIG_DIR/driver.toml" --ethrpc "$NODE_URL" &
 DRIVER_PID=$!
 
 # Wait for driver to start

@@ -50,18 +50,41 @@ After concatenation, remove the part files:
 rm -f pruned.tar.part*
 ```
 
-## Run the Node
+## Environment Setup
 
-Start the Arbitrum Nitro node with Docker:
+Create a `.env` file to store your RPC endpoints securely:
 
 ```bash
+nano $HOME/arbitrum/.env
+```
+
+Add your DRPC endpoints:
+
+```
+ETH_L1_RPC=https://your-drpc-eth-mainnet-endpoint
+ETH_BEACON_RPC=https://your-drpc-beacon-endpoint
+```
+
+Lock file permissions:
+
+```bash
+chmod 600 $HOME/arbitrum/.env
+```
+
+## Run the Node
+
+Load the environment variables and start the Arbitrum Nitro node with Docker:
+
+```bash
+source $HOME/arbitrum/.env
+
 docker run --stop-timeout 300 --name arbitrum -d --restart unless-stopped \
   -v $HOME/arbitrum:/home/user/.arbitrum \
   -p 0.0.0.0:8547:8547 \
   -p 0.0.0.0:8548:8548 \
   offchainlabs/nitro-node:v3.9.5-66e42c4 \
-  --parent-chain.connection.url <ETH_L1_RPC> \
-  --parent-chain.blob-client.beacon-url <ETH_BEACON_RPC> \
+  --parent-chain.connection.url $ETH_L1_RPC \
+  --parent-chain.blob-client.beacon-url $ETH_BEACON_RPC \
   --chain.id=42161 \
   --http.api=net,web3,eth,debug \
   --http.corsdomain=* \
