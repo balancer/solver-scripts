@@ -21,9 +21,16 @@ echo "Driver Port: $DRIVER_PORT"
 echo "Solver Port: $SOLVER_PORT"
 echo ""
 
-# Check if we're in the right directory
-if [ ! -d "services" ]; then
-    echo "❌ Error: Please run this script from the root directory (where 'services' folder is located)"
+# Resolve directories from script location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPTS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SERVICES_DIR="$(cd "$SCRIPTS_ROOT/.." && pwd)/services"
+CONFIG_DIR="$SCRIPT_DIR"
+
+# Check if services directory exists as sibling
+if [ ! -d "$SERVICES_DIR" ]; then
+    echo "❌ Error: 'services' directory not found at $SERVICES_DIR"
+    echo "   Expected directory layout: services/ and solver-scripts/ side by side"
     exit 1
 fi
 
@@ -34,16 +41,10 @@ if ! command -v cargo &> /dev/null; then
 fi
 
 echo "✅ Rust/Cargo is installed"
-
-# Setup arbitrum configuration
-echo "🔧 Setting up arbitrum configuration..."
-ln -sf configs/arbitrum/driver.toml driver.config.toml
-ln -sf configs/arbitrum/baseline.toml baseline.config.toml
-
-echo "✅ Arbitrum configuration loaded"
+echo "✅ Services directory: $SERVICES_DIR"
 
 # Change to services directory
-cd services
+cd "$SERVICES_DIR"
 
 echo ""
 echo "📦 Building CoW Protocol services..."
@@ -64,7 +65,7 @@ trap cleanup SIGINT SIGTERM
 
 # Start the balancer solver
 echo "🔧 Starting balancer solver on port $SOLVER_PORT..."
-cargo run -p balancer-solver -- --addr 127.0.0.1:$SOLVER_PORT baseline --config ../baseline.config.toml &
+cargo run -p balancer-solver -- --addr 127.0.0.1:$SOLVER_PORT baseline --config "$CONFIG_DIR/baseline.toml" &
 SOLVER_PID=$!
 
 # Wait a moment for solver to start
@@ -72,7 +73,7 @@ sleep 3
 
 # Start the driver
 echo "🔧 Starting driver on port $DRIVER_PORT..."
-cargo run -p driver -- --config ../driver.config.toml --ethrpc "$NODE_URL" &
+cargo run -p driver -- --config "$CONFIG_DIR/driver.toml" --ethrpc "$NODE_URL" &
 DRIVER_PID=$!
 
 # Wait a moment for driver to start
