@@ -31,6 +31,7 @@ EXAMPLE:
 """
 
 import json
+import os
 from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
@@ -574,7 +575,7 @@ class SwapLogAnalyzer:
 def main():
     """Main entry point for the script."""
     # Configuration
-    auction_dir = Path("auction-data/mainnet")
+    auction_dir = Path(os.environ.get("AUCTION_DIR", "/tmp/auction-data/arbitrum"))
     timestamp = int(datetime.now().timestamp())
     output_file = Path(f"swap_log_verification_report_{timestamp}.md")
     

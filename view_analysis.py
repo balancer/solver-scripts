@@ -5,6 +5,7 @@ Displays analysis in a nice, readable format with multiple viewing modes.
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 from collections import defaultdict
@@ -324,7 +325,7 @@ def view_pools(analysis_files):
 
 def main():
     """Main viewer function."""
-    auction_dir = Path("auction-data/mainnet")
+    auction_dir = Path(os.environ.get("AUCTION_DIR", "/tmp/auction-data/arbitrum"))
     analysis_files = list(auction_dir.glob("*_analysis.json"))
     
     if not analysis_files:

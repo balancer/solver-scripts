@@ -5,6 +5,7 @@ Shows Balancer pools used, token pairs, pricing, and comprehensive statistics.
 """
 
 import json
+import os
 from pathlib import Path
 from collections import defaultdict, Counter
 
@@ -418,7 +419,7 @@ def save_analysis_to_json(result, auction_dir):
     return output_file
 
 def compare_solutions_detailed():
-    auction_dir = Path("auction-data/mainnet")
+    auction_dir = Path(os.environ.get("AUCTION_DIR", "/tmp/auction-data/arbitrum"))
     
     # Find all solution files
     solution_files = sorted(auction_dir.glob("*_solutions.json"))

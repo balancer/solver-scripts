@@ -430,13 +430,13 @@ def main():
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Configuration
-    auction_dir = Path("auction-data/mainnet")
+    auction_dir = Path(os.environ.get("AUCTION_DIR", "/tmp/auction-data/arbitrum"))
     output_dir = Path("analysis_reports")
     output_dir.mkdir(exist_ok=True)
     
     if not auction_dir.exists():
         print(f"\n✗ Error: Auction directory not found: {auction_dir}")
-        print("Please make sure auction data is in auction-data/mainnet/")
+        print("Please make sure auction data exists or set AUCTION_DIR env var")
         return 1
     
     # Step 1: Scan for solutions

@@ -5,11 +5,12 @@ Analyzes whether we would have won and identifies issues.
 """
 
 import json
+import os
 from pathlib import Path
 from collections import defaultdict
 
 def compare_solutions():
-    auction_dir = Path("auction-data/mainnet")
+    auction_dir = Path(os.environ.get("AUCTION_DIR", "/tmp/auction-data/arbitrum"))
     
     # Find all solution files
     solution_files = sorted(auction_dir.glob("*_solutions.json"))

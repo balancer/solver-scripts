@@ -9,7 +9,7 @@ from pathlib import Path
 from collections import defaultdict
 
 def check_solutions():
-    auction_dir = Path("auction-data/mainnet")
+    auction_dir = Path(os.environ.get("AUCTION_DIR", "/tmp/auction-data/arbitrum"))
     
     if not auction_dir.exists():
         print(f"Error: Directory {auction_dir} does not exist")
