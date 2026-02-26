@@ -2,7 +2,7 @@
 """
 Analyze order volume from auction data to understand request patterns.
 Shows orders per auction over time, class breakdown (market vs limit),
-fulfilled vs unfulfilled orders, and token pair frequency.
+fulfilled vs unfulfilled orders, fillability by reference price, and token pair frequency.
 """
 
 import json
@@ -38,6 +38,78 @@ def token_name(address):
     return TOKEN_MAP.get(address.lower(), address[:10] + "..")
 
 
+def parse_uint256(value):
+    """Parse a uint256 value that could be decimal string or hex."""
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        if value.startswith("0x"):
+            return int(value, 16)
+        return int(value)
+    return 0
+
+
+def check_fillability(order, tokens):
+    """
+    Check if an order is potentially fillable at current market prices
+    using reference prices from the auction's token metadata.
+
+    Returns (is_fillable, deviation_pct) where deviation_pct is how far
+    the order's limit price is from the market price.
+    Positive deviation = order is generous (easy to fill).
+    Negative deviation = order wants better than market (hard to fill).
+    """
+    sell_token = order.get("sellToken", order.get("sell_token", ""))
+    buy_token = order.get("buyToken", order.get("buy_token", ""))
+    sell_amount = parse_uint256(order.get("sellAmount", order.get("sell_amount", "0")))
+    buy_amount = parse_uint256(order.get("buyAmount", order.get("buy_amount", "0")))
+    kind = order.get("kind", "sell").lower()
+
+    if sell_amount == 0 or buy_amount == 0:
+        return False, None, "zero_amount"
+
+    # Get reference prices (in ETH terms, as wei per unit)
+    sell_token_data = tokens.get(sell_token, {})
+    buy_token_data = tokens.get(buy_token, {})
+
+    sell_ref = sell_token_data.get("referencePrice")
+    buy_ref = buy_token_data.get("referencePrice")
+
+    if sell_ref is None or buy_ref is None:
+        return False, None, "no_ref_price"
+
+    sell_ref = parse_uint256(sell_ref)
+    buy_ref = parse_uint256(buy_ref)
+
+    if sell_ref == 0 or buy_ref == 0:
+        return False, None, "zero_ref_price"
+
+    # Order's limit rate: how many buy tokens per sell token
+    # For a sell order: user sells sell_amount and wants at least buy_amount
+    # For a buy order: user buys buy_amount and is willing to sell at most sell_amount
+    # In both cases: order_rate = buy_amount / sell_amount (buy per sell)
+    order_rate = buy_amount / sell_amount
+
+    # Market rate using reference prices:
+    # referencePrice is in ETH per token unit (normalized)
+    # market_rate = sell_ref / buy_ref = how many buy tokens per sell token at market
+    market_rate = sell_ref / buy_ref
+
+    if market_rate == 0:
+        return False, None, "zero_market_rate"
+
+    # Deviation: positive means order asks for LESS than market (easy to fill)
+    # negative means order asks for MORE than market (hard to fill)
+    deviation_pct = (market_rate - order_rate) / market_rate * 100
+
+    # Order is fillable if market can deliver at least what the order asks
+    # i.e., market_rate >= order_rate, i.e., deviation >= 0
+    # We use a small tolerance of -1% to account for slippage/fees
+    is_fillable = deviation_pct >= -1.0
+
+    return is_fillable, deviation_pct, "ok"
+
+
 def analyze_order_volume():
     auction_dir = Path(os.environ.get("AUCTION_DIR", "/tmp/auction-data/arbitrum"))
 
@@ -55,8 +127,12 @@ def analyze_order_volume():
 
     orders_per_auction = []
     token_pairs = defaultdict(int)
+    fillable_token_pairs = defaultdict(int)
     hourly_auctions = defaultdict(lambda: {"auctions": 0, "total_orders": 0, "market": 0, "limit": 0})
-    daily_auctions = defaultdict(lambda: {"auctions": 0, "total_orders": 0, "market": 0, "limit": 0})
+    daily_auctions = defaultdict(lambda: {
+        "auctions": 0, "total_orders": 0, "market": 0, "limit": 0,
+        "fillable": 0, "unfillable": 0, "no_ref": 0,
+    })
 
     # Global counters
     total_market = 0
@@ -65,18 +141,33 @@ def analyze_order_volume():
     total_fulfilled = 0
     total_unfulfilled = 0
 
+    # Fillability counters
+    total_fillable = 0
+    total_unfillable = 0
+    total_no_ref = 0
+    all_deviations = []
+    fillable_deviations = []
+
+    # Per-auction fillable counts for distribution
+    fillable_per_auction = []
+
     for auction_file in auction_files:
         try:
             with open(auction_file) as f:
                 data = json.load(f)
 
             orders = data.get("orders", [])
+            tokens = data.get("tokens", {})
             order_count = len(orders)
             auction_id = auction_file.stem.replace("_auction", "")
 
-            # Count order classes
+            # Count order classes and fillability
             market_count = 0
             limit_count = 0
+            auction_fillable = 0
+            auction_unfillable = 0
+            auction_no_ref = 0
+
             for order in orders:
                 order_class = order.get("class", "unknown").lower()
                 if order_class == "market":
@@ -84,9 +175,31 @@ def analyze_order_volume():
                 elif order_class == "limit":
                     limit_count += 1
 
+                # Check fillability
+                is_fillable, deviation, reason = check_fillability(order, tokens)
+                if reason != "ok":
+                    auction_no_ref += 1
+                    total_no_ref += 1
+                elif is_fillable:
+                    auction_fillable += 1
+                    total_fillable += 1
+                    fillable_deviations.append(deviation)
+                    # Track fillable token pairs
+                    sell_token = order.get("sellToken", order.get("sell_token", "?"))
+                    buy_token = order.get("buyToken", order.get("buy_token", "?"))
+                    pair = f"{token_name(sell_token)} -> {token_name(buy_token)}"
+                    fillable_token_pairs[pair] += 1
+                else:
+                    auction_unfillable += 1
+                    total_unfillable += 1
+
+                if deviation is not None:
+                    all_deviations.append(deviation)
+
             total_market += market_count
             total_limit += limit_count
             total_other_class += order_count - market_count - limit_count
+            fillable_per_auction.append(auction_fillable)
 
             # Check corresponding solutions file for fulfilled orders
             solutions_file = auction_dir / f"{auction_id}_solutions.json"
@@ -119,6 +232,7 @@ def analyze_order_volume():
                 "market": market_count,
                 "limit": limit_count,
                 "fulfilled": fulfilled_count,
+                "fillable": auction_fillable,
                 "timestamp": ts,
             })
 
@@ -131,12 +245,15 @@ def analyze_order_volume():
             daily_auctions[day_key]["total_orders"] += order_count
             daily_auctions[day_key]["market"] += market_count
             daily_auctions[day_key]["limit"] += limit_count
+            daily_auctions[day_key]["fillable"] += auction_fillable
+            daily_auctions[day_key]["unfillable"] += auction_unfillable
+            daily_auctions[day_key]["no_ref"] += auction_no_ref
 
             # Track token pairs
             for order in orders:
-                sell_token = order.get("sell_token", order.get("sellToken", "?"))
-                buy_token = order.get("buy_token", order.get("buyToken", "?"))
-                pair = f"{token_name(sell_token)} → {token_name(buy_token)}"
+                sell_token = order.get("sellToken", order.get("sell_token", "?"))
+                buy_token = order.get("buyToken", order.get("buy_token", "?"))
+                pair = f"{token_name(sell_token)} -> {token_name(buy_token)}"
                 token_pairs[pair] += 1
 
         except Exception as e:
@@ -189,6 +306,67 @@ def analyze_order_volume():
     if total_other_class > 0:
         print(f"  Other/unknown:         {total_other_class:>8}")
 
+    # Fillability analysis
+    total_checked = total_fillable + total_unfillable
+    print(f"\n{'=' * 80}")
+    print("FILLABILITY ANALYSIS (based on reference prices, -1% tolerance)")
+    print("=" * 80)
+    if total_checked > 0:
+        fillable_pct = total_fillable / total_checked * 100
+        unfillable_pct = total_unfillable / total_checked * 100
+    else:
+        fillable_pct = unfillable_pct = 0
+    print(f"  Potentially fillable:  {total_fillable:>8} ({fillable_pct:>5.1f}% of checked)")
+    print(f"  Unfillable at market:  {total_unfillable:>8} ({unfillable_pct:>5.1f}% of checked)")
+    print(f"  No reference price:    {total_no_ref:>8} (skipped)")
+    print(f"  Total checked:         {total_checked:>8}")
+    avg_fillable = sum(fillable_per_auction) / len(fillable_per_auction) if fillable_per_auction else 0
+    max_fillable = max(fillable_per_auction) if fillable_per_auction else 0
+    sorted_fillable = sorted(fillable_per_auction)
+    median_fillable = sorted_fillable[len(sorted_fillable) // 2] if sorted_fillable else 0
+    print(f"\n  Avg fillable/auction:  {avg_fillable:.1f}")
+    print(f"  Median fillable/auc:   {median_fillable}")
+    print(f"  Max fillable/auction:  {max_fillable}")
+
+    # Deviation distribution
+    if all_deviations:
+        sorted_devs = sorted(all_deviations)
+        print(f"\n  Price deviation distribution (market_rate vs order_rate):")
+        print(f"  (positive = order asks less than market, easy to fill)")
+        print(f"  (negative = order asks more than market, hard to fill)")
+        percentiles = [1, 5, 10, 25, 50, 75, 90, 95, 99]
+        for p in percentiles:
+            idx = int(len(sorted_devs) * p / 100)
+            idx = min(idx, len(sorted_devs) - 1)
+            print(f"    p{p:<3}: {sorted_devs[idx]:>8.1f}%")
+
+    # Fillable orders distribution per auction
+    print(f"\n{'=' * 80}")
+    print("FILLABLE ORDERS PER AUCTION DISTRIBUTION")
+    print("=" * 80)
+    fill_buckets = defaultdict(int)
+    for c in fillable_per_auction:
+        if c == 0:
+            fill_buckets["0"] += 1
+        elif c <= 2:
+            fill_buckets["1-2"] += 1
+        elif c <= 5:
+            fill_buckets["3-5"] += 1
+        elif c <= 10:
+            fill_buckets["6-10"] += 1
+        elif c <= 20:
+            fill_buckets["11-20"] += 1
+        elif c <= 50:
+            fill_buckets["21-50"] += 1
+        else:
+            fill_buckets["50+"] += 1
+
+    for bucket in ["0", "1-2", "3-5", "6-10", "11-20", "21-50", "50+"]:
+        count = fill_buckets.get(bucket, 0)
+        pct = count / len(fillable_per_auction) * 100 if fillable_per_auction else 0
+        bar = "#" * int(pct / 2)
+        print(f"  {bucket:>5} fillable: {count:>6} auctions ({pct:>5.1f}%) {bar}")
+
     # Fulfilled breakdown
     print(f"\n{'=' * 80}")
     print("FULFILLED vs UNFULFILLED (by our solver)")
@@ -233,16 +411,18 @@ def analyze_order_volume():
         bar = "#" * int(pct / 2)
         print(f"  {bucket:>8} orders: {count:>6} auctions ({pct:>5.1f}%) {bar}")
 
-    # Daily breakdown
+    # Daily breakdown with fillability
     print(f"\n{'=' * 80}")
     print("DAILY BREAKDOWN")
     print("=" * 80)
-    print(f"  {'Date':<12} {'Auctions':>8} {'Orders':>8} {'Market':>8} {'Limit':>8} {'Limit%':>7}")
-    print(f"  {'-'*12} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*7}")
+    print(f"  {'Date':<12} {'Auctions':>8} {'Orders':>8} {'Fillable':>8} {'Fill%':>6} {'Avg Fill/Auc':>12}")
+    print(f"  {'-'*12} {'-'*8} {'-'*8} {'-'*8} {'-'*6} {'-'*12}")
     for day in sorted(daily_auctions.keys()):
         d = daily_auctions[day]
-        lpct = d["limit"] / d["total_orders"] * 100 if d["total_orders"] > 0 else 0
-        print(f"  {day:<12} {d['auctions']:>8} {d['total_orders']:>8} {d['market']:>8} {d['limit']:>8} {lpct:>6.1f}%")
+        checked = d["fillable"] + d["unfillable"]
+        fpct = d["fillable"] / checked * 100 if checked > 0 else 0
+        avg_f = d["fillable"] / d["auctions"] if d["auctions"] > 0 else 0
+        print(f"  {day:<12} {d['auctions']:>8} {d['total_orders']:>8} {d['fillable']:>8} {fpct:>5.1f}% {avg_f:>12.1f}")
 
     # Hourly breakdown (last 24h)
     print(f"\n{'=' * 80}")
@@ -255,7 +435,7 @@ def analyze_order_volume():
         h = hourly_auctions[hour]
         print(f"  {hour:<18} {h['auctions']:>8} {h['total_orders']:>8} {h['market']:>8} {h['limit']:>8}")
 
-    # Top token pairs
+    # Top token pairs (all)
     print(f"\n{'=' * 80}")
     print("TOP 30 TOKEN PAIRS (by order frequency)")
     print("=" * 80)
@@ -263,23 +443,34 @@ def analyze_order_volume():
         pct = count / total_orders * 100
         print(f"  {count:>6} ({pct:>5.1f}%) {pair}")
 
+    # Top FILLABLE token pairs
+    print(f"\n{'=' * 80}")
+    print("TOP 20 FILLABLE TOKEN PAIRS (orders near market price)")
+    print("=" * 80)
+    if fillable_token_pairs:
+        for pair, count in sorted(fillable_token_pairs.items(), key=lambda x: -x[1])[:20]:
+            pct = count / total_fillable * 100 if total_fillable > 0 else 0
+            print(f"  {count:>6} ({pct:>5.1f}%) {pair}")
+    else:
+        print("  No fillable orders found")
+
     # SOR query estimate
     print(f"\n{'=' * 80}")
     print("SOR QUERY ESTIMATE")
     print("=" * 80)
     print(f"If querying SOR for every order:")
     print(f"  Per auction (avg):     {avg_orders:.0f} queries")
-    print(f"  Per auction (median):  {median_orders} queries")
     print(f"  Per auction (max):     {max_orders} queries")
     if duration_hours > 0:
-        print(f"  Per hour (avg):        {total_orders / duration_hours:.0f} queries")
         print(f"  Per day (avg):         {total_orders / duration_hours * 24:.0f} queries")
-    print(f"\nIf querying SOR for market orders only:")
-    avg_market = total_market / len(orders_per_auction)
-    print(f"  Per auction (avg):     {avg_market:.0f} queries")
+    print(f"\nIf querying SOR for fillable orders only (reference price filter):")
+    print(f"  Per auction (avg):     {avg_fillable:.1f} queries")
+    print(f"  Per auction (median):  {median_fillable} queries")
+    print(f"  Per auction (max):     {max_fillable} queries")
     if duration_hours > 0:
-        print(f"  Per hour (avg):        {total_market / duration_hours:.0f} queries")
-        print(f"  Per day (avg):         {total_market / duration_hours * 24:.0f} queries")
+        print(f"  Per hour (avg):        {total_fillable / duration_hours:.0f} queries")
+        print(f"  Per day (avg):         {total_fillable / duration_hours * 24:.0f} queries")
+    print(f"\n  --> Filtering reduces queries by ~{(1 - total_fillable/max(total_checked,1))*100:.1f}%")
 
 
 if __name__ == "__main__":
