@@ -110,20 +110,30 @@ def check_fillability(order, tokens):
     return is_fillable, deviation_pct, "ok"
 
 
-def analyze_order_volume():
+def analyze_order_volume(hours=24):
     auction_dir = Path(os.environ.get("AUCTION_DIR", "/tmp/auction-data/arbitrum"))
 
     if not auction_dir.exists():
         print(f"Error: Directory {auction_dir} does not exist")
         return
 
-    auction_files = sorted(auction_dir.glob("*_auction.json"))
+    all_auction_files = sorted(auction_dir.glob("*_auction.json"))
 
-    if not auction_files:
+    if not all_auction_files:
         print("No auction files found!")
         return
 
-    print(f"Analyzing {len(auction_files)} auction files...\n")
+    # Filter to files from the last N hours
+    cutoff = datetime.now().timestamp() - (hours * 3600)
+    auction_files = [f for f in all_auction_files if f.stat().st_mtime >= cutoff]
+
+    if not auction_files:
+        print(f"No auction files found in the last {hours} hours!")
+        print(f"(Total files available: {len(all_auction_files)})")
+        return
+
+    print(f"Analyzing {len(auction_files)} auction files from the last {hours} hours")
+    print(f"(Skipped {len(all_auction_files) - len(auction_files)} older files)\n")
 
     orders_per_auction = []
     token_pairs = defaultdict(int)
@@ -150,6 +160,13 @@ def analyze_order_volume():
 
     # Per-auction fillable counts for distribution
     fillable_per_auction = []
+
+    # Competition data counters
+    total_competition_filled = 0
+    total_competition_auctions = 0
+    competition_filled_per_auction = []
+    competition_solvers = defaultdict(lambda: {"wins": 0, "orders_filled": 0})
+    auctions_with_no_winner = 0
 
     for auction_file in auction_files:
         try:
@@ -220,6 +237,33 @@ def analyze_order_volume():
             total_fulfilled += fulfilled_count
             total_unfulfilled += order_count - fulfilled_count
 
+            # Check competition data for orders actually filled by ANY solver
+            competition_file = auction_dir / f"{auction_id}_competition.json"
+            auction_competition_filled = 0
+            if competition_file.exists():
+                try:
+                    with open(competition_file) as f:
+                        comp_data = json.load(f)
+                    total_competition_auctions += 1
+                    solutions = comp_data.get("solutions", [])
+                    winner = None
+                    for sol in solutions:
+                        if sol.get("isWinner"):
+                            winner = sol
+                            break
+                    if winner:
+                        winner_orders = winner.get("orders", [])
+                        auction_competition_filled = len(winner_orders)
+                        total_competition_filled += auction_competition_filled
+                        solver_addr = winner.get("solverAddress", "unknown")
+                        competition_solvers[solver_addr]["wins"] += 1
+                        competition_solvers[solver_addr]["orders_filled"] += len(winner_orders)
+                    else:
+                        auctions_with_no_winner += 1
+                except Exception:
+                    pass
+            competition_filled_per_auction.append(auction_competition_filled)
+
             # Get timestamp from file modification time
             mtime = auction_file.stat().st_mtime
             ts = datetime.fromtimestamp(mtime)
@@ -233,6 +277,7 @@ def analyze_order_volume():
                 "limit": limit_count,
                 "fulfilled": fulfilled_count,
                 "fillable": auction_fillable,
+                "competition_filled": auction_competition_filled,
                 "timestamp": ts,
             })
 
@@ -380,6 +425,61 @@ def analyze_order_volume():
     print(f"  Avg solved/auction:    {avg_fulfilled:.2f}")
     print(f"  Auctions with solutions: {auctions_with_solutions}/{len(orders_per_auction)} ({auctions_with_solutions/len(orders_per_auction)*100:.1f}%)")
 
+    # Competition data: orders actually filled by ANY solver (winner)
+    print(f"\n{'=' * 80}")
+    print("ORDERS ACTUALLY FILLED (by competition winner)")
+    print("=" * 80)
+    if total_competition_auctions > 0:
+        avg_comp_filled = total_competition_filled / total_competition_auctions
+        comp_filled_nonzero = [c for c in competition_filled_per_auction if c > 0]
+        max_comp_filled = max(competition_filled_per_auction) if competition_filled_per_auction else 0
+        sorted_comp = sorted(competition_filled_per_auction)
+        median_comp = sorted_comp[len(sorted_comp) // 2]
+        auctions_with_winner = total_competition_auctions - auctions_with_no_winner
+
+        print(f"  Auctions with competition data: {total_competition_auctions}")
+        print(f"  Auctions with a winner:    {auctions_with_winner} ({auctions_with_winner/total_competition_auctions*100:.1f}%)")
+        print(f"  Auctions with no winner:   {auctions_with_no_winner}")
+        print(f"  Total orders filled:       {total_competition_filled}")
+        print(f"  Avg filled/auction:        {avg_comp_filled:.2f}")
+        print(f"  Median filled/auction:     {median_comp}")
+        print(f"  Max filled/auction:        {max_comp_filled}")
+
+        # Compare with our solver
+        print(f"\n  Comparison:")
+        print(f"    Our solver proposed:     {total_fulfilled} solutions across all auctions")
+        print(f"    Competition filled:      {total_competition_filled} orders across {total_competition_auctions} auctions")
+
+        # Distribution of filled orders per auction
+        comp_buckets = defaultdict(int)
+        for c in competition_filled_per_auction:
+            if c == 0:
+                comp_buckets["0"] += 1
+            elif c == 1:
+                comp_buckets["1"] += 1
+            elif c <= 3:
+                comp_buckets["2-3"] += 1
+            elif c <= 5:
+                comp_buckets["4-5"] += 1
+            elif c <= 10:
+                comp_buckets["6-10"] += 1
+            else:
+                comp_buckets["10+"] += 1
+
+        print(f"\n  Filled orders per auction distribution:")
+        for bucket in ["0", "1", "2-3", "4-5", "6-10", "10+"]:
+            count = comp_buckets.get(bucket, 0)
+            pct = count / len(competition_filled_per_auction) * 100 if competition_filled_per_auction else 0
+            bar = "#" * int(pct / 2)
+            print(f"    {bucket:>5} filled: {count:>6} auctions ({pct:>5.1f}%) {bar}")
+
+        # Top winning solvers
+        print(f"\n  Top winning solvers:")
+        for addr, stats in sorted(competition_solvers.items(), key=lambda x: -x[1]["wins"])[:10]:
+            print(f"    {addr[:10]}..{addr[-6:]}: {stats['wins']:>5} wins, {stats['orders_filled']:>6} orders filled")
+    else:
+        print("  No competition data available")
+
     # Distribution
     print(f"\n{'=' * 80}")
     print("ORDER COUNT DISTRIBUTION (total orders per auction)")
@@ -474,4 +574,15 @@ def analyze_order_volume():
 
 
 if __name__ == "__main__":
-    analyze_order_volume()
+    import sys
+    hours = 24
+    if len(sys.argv) > 1:
+        try:
+            hours = int(sys.argv[1])
+        except ValueError:
+            print(f"Usage: python3 analyze_order_volume.py [hours]")
+            print(f"  Default: 24 hours. Use 0 for all data.")
+            sys.exit(1)
+    if hours == 0:
+        hours = 999999  # effectively all data
+    analyze_order_volume(hours)
